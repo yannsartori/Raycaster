@@ -13,6 +13,6 @@ This was a very barebones implementation of a technique upon which can be vastly
 - strafing
 - a live-updated map
 - improved floor and wall casting (My current implementation assumes the viewing area to be a rectangle, which is of course false. However, in my code, I commented out an attempt that would work, but at the resolution at which I wish to run it, it is much too slow)
--sprites
--variable wall heights
--more indication that a human is being controlled (i.e. a hand à la FPS)
+- sprites
+- variable wall heights
+- more indication that a human is being controlled (i.e. a hand à la FPS)
