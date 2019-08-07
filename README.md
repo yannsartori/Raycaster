@@ -16,5 +16,6 @@ This was a very barebones implementation of a technique upon which can be vastly
 - sprites
 - variable wall heights
 - more indication that a human is being controlled (i.e. a hand à la FPS)
+
 Bugs I have identified:
 - there's a fix I have to fix rays being coloured the wrong side colour from a far (basically checking if it's monotonic with its neighbours and of a different side) However, at close distances to the wall, this doesn't work because the wrong ray colours are more than one long. I'm pretty sure this can be fixed by continuing building the queue while it is monotonic, and when it stops, go back and colour everything the correct way, or do horizontal and vertical grid line checks simultaneously.
