@@ -6,6 +6,7 @@
 //    |
 //    |
 
+//TODO fix weird grid generation bug
 class Player {
   constructor(x, y, direction, height) {
     this.x = x;
@@ -20,7 +21,25 @@ class Player {
     if (map[Math.floor((this.y - step * Math.sin(this.direction)) / GRID_SIZE)][Math.floor((this.x + step * Math.cos(this.direction)) / GRID_SIZE)] === 0) {
       this.x += step * Math.cos(this.direction);
       this.y -= step * Math.sin(this.direction);
-    }
+    } 
+    // else if (map[Math.floor((this.y) / GRID_SIZE)][Math.floor((this.x + step * Math.cos(this.direction)) / GRID_SIZE)] === 0) {
+    //   this.x += step * Math.cos(this.direction);
+    // } else if (map[Math.floor((this.y - step * Math.sin(this.direction)) / GRID_SIZE)][Math.floor((this.x) / GRID_SIZE)] === 0) {
+    //   this.y -= step * Math.sin(this.direction);
+    // }
+  }
+  strafe(step) {
+    let perpDir = this.direction + ((step > 0) ? Math.PI / 2 : -1 * Math.PI / 2); //L R
+    step = Math.abs(step);
+    if (map[Math.floor((this.y - step * Math.sin(perpDir)) / GRID_SIZE)][Math.floor((this.x + step * Math.cos(perpDir)) / GRID_SIZE)] === 0) {
+      this.x += step * Math.cos(perpDir);
+      this.y -= step * Math.sin(perpDir);
+    } 
+    // else if (map[Math.floor((this.y) / GRID_SIZE)][Math.floor((this.x + step * Math.cos(perpDir)) / GRID_SIZE)] === 0) {
+    //   this.x += step * Math.cos(perpDir);
+    // } else if (map[Math.floor((this.y - step * Math.sin(perpDir)) / GRID_SIZE)][Math.floor((this.x) / GRID_SIZE)] === 0) {
+    //   this.y -= step * Math.sin(perpDir);
+    // }
   }
 }
 CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
@@ -35,7 +54,7 @@ CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
   this.closePath();
   return this;
 }; //https://stackoverflow.com/a/7838871/11695068 credit to
-const LEFT = 0, UP = 1, RIGHT = 2, DOWN = 3; //used for smooth movement in keydown
+const LEFT = 0, W = 1, RIGHT = 2, S = 3; A = 4, D = 5;//used for smooth movement in keydown
 //hsl so brightness drop off is on the l paramater
 const COLOURS = [null, [0, 100, 50], [30, 100, 50], [60, 100, 50], [120, 100, 50], [240, 100, 50], [270, 100, 50], [330, 100, 50]]; //r y o g b v p
 
@@ -176,6 +195,7 @@ function drawTable(table, tileSelected) {
       }
       if (tileSelected && tileSelected[0] === i && tileSelected[1] === j) ctx.strokeStyle = ctx.fillStyle = "blue";
       ctx.roundRect(2 + (40 + 5)*j, 45 + (40 + 5)*i, 40, 40, 10).stroke();
+      ctx.font = (table[i][j] !== 0) ?  "bold 16px Courier New": "15px Courier New"; 
       ctx.fillText(table[i][j], 2 + 17 + (40 + 5)*j, 45 + 23 + (40 + 5)*i);
       ctx.strokeStyle = ctx.fillStyle = "black";
     }
@@ -193,12 +213,19 @@ function transitionFunction(table, startingRow, startingCol) {
     table[0].push(1);
     table[table.length - 1].push(1);
   }
-  for (let i = 1; i < table[1].length - 1; i++) {
+  for (let i = 1; i < table.length - 1; i++) {
     table[i].unshift(1);
     table[i].push(1);
   }
   
   //so orientationis correct
+  let miniMap = [];
+  table.forEach(function(row, i) {
+    miniMap.push([]);
+    row.forEach(function(elem, j) {
+      miniMap[i].push(elem);
+    });
+  });
   table.reverse();
   map = table;
   
@@ -206,7 +233,7 @@ function transitionFunction(table, startingRow, startingCol) {
   document.getElementById("main").outerHTML = "";
   let canvas = document.createElement("canvas");
   canvas.id = "main";
-  canvas.width = WIDTH;
+  canvas.width = WIDTH + map[0].length*4;
   canvas.height = HEIGHT;
   canvas.setAttribute("tabindex", "1");
   document.body.appendChild(canvas);
@@ -234,18 +261,24 @@ function transitionFunction(table, startingRow, startingCol) {
   canvas.addEventListener("keydown", function(event) {
     if (event.key === "ArrowLeft") keyDown[LEFT] = true;
     else if (event.key === "ArrowRight") keyDown[RIGHT] = true;
-    else if(event.key === "ArrowUp") keyDown[UP] = true;
-    else if(event.key === "ArrowDown") keyDown[DOWN] = true;
+    else if(event.key === "w") keyDown[W] = true;
+    else if(event.key === "s") keyDown[S] = true;
+    else if(event.key === "a") keyDown[A] = true;
+    else if(event.key === "d") keyDown[D] = true;
+    event.preventDefault();
   });
   canvas.addEventListener("keyup", function(event) {
     if (event.key === "ArrowLeft") keyDown[LEFT] = false;
     else if (event.key === "ArrowRight") keyDown[RIGHT] = false;
-    else if(event.key === "ArrowUp") keyDown[UP] = false;
-    else if(event.key === "ArrowDown") keyDown[DOWN] = false;
+    else if(event.key === "w") keyDown[W] = false;
+    else if(event.key === "s") keyDown[S] = false;
+    else if(event.key === "a") keyDown[A] = false;
+    else if(event.key === "d") keyDown[D] = false;
   });
   window.requestAnimationFrame(function repeat() {
     if (p.x !== prevPos[0] || p.y !== prevPos[1] || p.direction !== prevPos[2]) { //avoids unnecessary drawing
       draw(p);
+      drawMiniMap(miniMap, p);
       prevPos[0] = p.x; prevPos[1] = p.y; prevPos[2] = p.direction;
     }
     //rotates view
@@ -253,18 +286,19 @@ function transitionFunction(table, startingRow, startingCol) {
     else if (!keyDown[LEFT] && keyDown[RIGHT]) p.changeDirection(2*2*Math.PI/360);
     
     //translates player
-    if (keyDown[UP] && !keyDown[DOWN]) p.move(GRID_SIZE / 8);
-    else if (!keyDown[UP] && keyDown[DOWN]) p.move(-GRID_SIZE / 8);
+    if (keyDown[W] && !keyDown[S]) p.move(GRID_SIZE / 20);
+    else if (!keyDown[W] && keyDown[S]) p.move(-GRID_SIZE / 20);
+    
+    if (keyDown[A] && !keyDown[D]) p.strafe(-GRID_SIZE / 20);
+    else if (!keyDown[A] && keyDown[D]) p.strafe(GRID_SIZE / 20);
     window.requestAnimationFrame(repeat);
   });
 }
 function rayDraw(p) {
   let canvas = document.getElementById("main");
   let ctx = canvas.getContext("2d");
-  
+  let distances = [];
   //draws a ray for every horizontal pixel
-  let previousEntries = [null, null, null];
-  //the commented out portion draws floor rays. It however, lags a lot at the current resolution
   for (let i = SCREEN_CENTER[1]; i < HEIGHT; i++) {
     let pixelDistance = floorRays(i, p);
     let adjustedDistance = pixelDistance /// Math.cos(rayAngle - p.direction);
@@ -275,6 +309,7 @@ function rayDraw(p) {
   for (let rayAngle = p.direction - FOV / 2, steps = 0; steps < WIDTH; rayAngle = (rayAngle + dTheta) % (Math.PI * 2), steps += 1) {
     let retVal = findRay(rayAngle, p); //[distanceFromWall, colourOfWall, sideOfWall]
     let rayHeight = Math.floor((GRID_SIZE * DISTANCE_TO_SCREEN) / retVal[0]); //based on similar triangles
+    distances.push(rayHeight + "@" + (rayAngle * 180 / Math.PI));
     if (!retVal[1]) retVal[1] = COLOURS[1];
     //changes colour of wall depending on which side it is on. Creates a primitive shadow effeect
     if (retVal[2] === 0)
@@ -282,26 +317,6 @@ function rayDraw(p) {
     else
       ctx.fillStyle = `hsl(${COLOURS[retVal[1]][0]},${COLOURS[retVal[1]][1]}%,${COLOURS[retVal[1]][2]*(1 - (retVal[0]/DISTANCE_TO_SCREEN) * .08)*0.5}%)`
     ctx.fillRect(steps, SCREEN_CENTER[1] - rayHeight * 0.5, 1, rayHeight);
-    
-    //Corrects (for the most part) random shadow changes that occur due to the ray intersecting with the wrong side
-    //of the wall
-    
-    previousEntries.shift();
-    previousEntries.push([rayHeight, retVal[1], retVal[2]]);
-    
-    if (previousEntries[0] && previousEntries[1] && previousEntries[2]) { //they all exist
-      if (previousEntries[0][2] === previousEntries[2][2] && previousEntries[1][2] !== previousEntries[0][2]) { //the center is different side
-        if ((previousEntries[0][0] <= previousEntries[1][0] && previousEntries[1][0] <= previousEntries[2][0]) ||
-                (previousEntries[0][0] >= previousEntries[1][0] && previousEntries[1][0] >= previousEntries[2][0])) { //yet it is monotonic (i.e. no corners)
-          if (previousEntries[0][2] === 0)
-            ctx.fillStyle = `hsl(${COLOURS[retVal[1]][0]},${COLOURS[retVal[1]][1]}%,${COLOURS[retVal[1]][2]*(1 - (retVal[0]/DISTANCE_TO_SCREEN) * .08)}%)`;
-          else
-            ctx.fillStyle = `hsl(${COLOURS[retVal[1]][0]},${COLOURS[retVal[1]][1]}%,${COLOURS[retVal[1]][2]*(1 - (retVal[0]/DISTANCE_TO_SCREEN) * .08)*0.5}%)`
-          let midHeight = previousEntries[1][0];
-          ctx.fillRect(steps - 1, SCREEN_CENTER[1] - midHeight * 0.5, 1, midHeight);
-        }
-      }
-    }
     /*
     //the commented out portion draws floor rays. It however, lags a lot at the current resolution
     for (let i = SCREEN_CENTER[1] + rayHeight * 0.5 + 1; i < HEIGHT; i++) {
@@ -320,7 +335,7 @@ function findRay(rayAngle, p) {
   let colours = [];
   let dy = 0, dx = 0;
   if (0 <= rayAngle && rayAngle < Math.PI) { //going up, y decreases
-    hPoint[1] = Math.floor(p.y / GRID_SIZE) * GRID_SIZE - 1;
+    hPoint[1] = Math.floor(p.y / GRID_SIZE) * GRID_SIZE - 0.000001; //miniscule amount prevents it from being on the border, yet being too much that it draws the wrong side (i.e. "jumps the wall")
     dy = -1 * GRID_SIZE;
   } else {//going down, y increases
     hPoint[1] = Math.floor(p.y / GRID_SIZE) * GRID_SIZE + GRID_SIZE;
@@ -349,7 +364,7 @@ function findRay(rayAngle, p) {
   let vPoint = [0, 0];
   dy = dx = 0;
   if (Math.PI * 0.5 <= rayAngle && rayAngle <= Math.PI * 1.5) {
-    vPoint[0] = Math.floor(p.x / GRID_SIZE) * GRID_SIZE - 1;
+    vPoint[0] = Math.floor(p.x / GRID_SIZE) * GRID_SIZE - 0.000001;
     dx = -1 * GRID_SIZE;
   } else {
     vPoint[0] = Math.floor(p.x / GRID_SIZE) * GRID_SIZE + GRID_SIZE;
@@ -376,7 +391,7 @@ function findRay(rayAngle, p) {
   let index = (Math.min(distances[0], distances[1]) === distances[0]) ? 0 : 1;
   
   //cos term fixes fish-bowl effect
-  return [distances[index] * Math.cos(rayAngle - p.direction), colours[index], index];
+  return [distances[index] * Math.cos(rayAngle - p.direction), colours[index], index]; 
 }
 function floorRays(pixelHeight, p) {
   let distanceToIntersect = (p.height * DISTANCE_TO_SCREEN) / (SCREEN_CENTER[1] - pixelHeight);
@@ -390,6 +405,21 @@ function draw(p) {
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
   rayDraw(p);
 }
-
+function drawMiniMap(miniMap, p) {
+  let canvas = document.getElementById("main");
+  let ctx = canvas.getContext("2d");
+  ctx.strokeStyle = "black";
+  ctx.clearRect(WIDTH, 0, miniMap[0].length * 4, miniMap.length * 4);
+  miniMap.forEach(function(row, i) {
+    row.forEach(function(elem, j) {
+      if(COLOURS[elem]) ctx.fillStyle = `hsl(${COLOURS[elem][0]},${COLOURS[elem][1]}%,${COLOURS[elem][2]}%)`;
+      if (elem !== 0) {
+        ctx.fillRect(WIDTH + 4*j, 4*i, 4, 4);
+        ctx.strokeRect(WIDTH + 4*j, 4*i, 4, 4);
+      }  
+    });
+  });
+  ctx.fillStyle = "green";
+  ctx.fillRect(WIDTH + (p.x / GRID_SIZE) * 4, miniMap.length*4 - (p.y / GRID_SIZE) *4, 4, 4);
+}
 main();
-//TODO Maybe change the ray checking to be sequential (i.e. do horizontal, then vertical to see which gets hit first. then if they get hit at the same time, check the distance)
